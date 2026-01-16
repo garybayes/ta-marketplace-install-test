@@ -1,0 +1,12 @@
+---
+version: 1
+
+enforcement:
+  enabled: false
+
+telemetry:
+  enabled: true
+
+safety:
+  allow_destructive_actions: false
+  fail_on_invalid_config: true

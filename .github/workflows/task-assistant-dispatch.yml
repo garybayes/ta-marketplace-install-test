@@ -1,0 +1,123 @@
+---
+name: Task Assistant • Dispatch
+
+# yamllint disable rule:truthy
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: "Target repository (owner/repo)"
+        required: true
+      mode:
+        description: "Execution mode"
+        required: true
+        default: "self-test"
+        type: choice
+        options:
+          - self-test
+          - validate
+          - enforce
+
+  issues:
+    types: [labeled]
+
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: write
+  issues: write
+  id-token: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      target_repo:     ${{ steps.ctx.outputs.target_repo }}
+      telemetry_repo:  ${{ steps.ctx.outputs.telemetry_repo }}
+      mode:            ${{ steps.ctx.outputs.mode }}
+      issue_number:    ${{ steps.ctx.outputs.issue_number }}
+      event_type:      ${{ steps.ctx.outputs.event_type }}
+      correlation_id:  ${{ steps.ctx.outputs.correlation_id }}
+
+    steps:
+      - id: ctx
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CORRELATION_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          TARGET_REPO=""
+          MODE=""
+          ISSUE_NUMBER=""
+          EVENT_TYPE=""
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            TARGET_REPO="${{ inputs.target_repo }}"
+            MODE="${{ inputs.mode }}"
+
+          elif [ "${GITHUB_EVENT_NAME}" = "issues" ]; then
+            TARGET_REPO="${GITHUB_REPOSITORY}"
+            MODE="enforce"
+            ISSUE_NUMBER="${{ github.event.issue.number }}"
+            EVENT_TYPE="${{ github.event.action }}"
+
+          elif [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            TARGET_REPO="${GITHUB_REPOSITORY}"
+            MODE="validate"
+
+          else
+            echo "::error::Unsupported event: ${GITHUB_EVENT_NAME}"
+            exit 1
+          fi
+
+          OWNER="${TARGET_REPO%%/*}"
+          TELEMETRY_REPO="${OWNER}/task-assistant-telemetry"
+
+          echo "target_repo=$TARGET_REPO"       >> "$GITHUB_OUTPUT"
+          echo "telemetry_repo=$TELEMETRY_REPO" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE"                     >> "$GITHUB_OUTPUT"
+          echo "issue_number=$ISSUE_NUMBER"     >> "$GITHUB_OUTPUT"
+          echo "event_type=$EVENT_TYPE"         >> "$GITHUB_OUTPUT"
+          echo "correlation_id=$CORRELATION_ID" >> "$GITHUB_OUTPUT"
+
+  self_test:
+    if: needs.resolve.outputs.mode == 'self-test'
+    needs: resolve
+    uses: ./.github/workflows/engine-self-test.yml
+    with:
+      target_repo:     ${{ needs.resolve.outputs.target_repo }}
+      telemetry_repo:  ${{ needs.resolve.outputs.telemetry_repo }}
+      correlation_id:  ${{ needs.resolve.outputs.correlation_id }}
+    secrets:
+      CODEX_APP_ID:        ${{ secrets.CODEX_APP_ID }}
+      CODEX_PRIVATE_KEY:   ${{ secrets.CODEX_PRIVATE_KEY }}
+
+  validate:
+    if: needs.resolve.outputs.mode == 'validate'
+    needs: resolve
+    uses: ./.github/workflows/engine-validate.yml
+    with:
+      target_repo:     ${{ needs.resolve.outputs.target_repo }}
+      telemetry_repo:  ${{ needs.resolve.outputs.telemetry_repo }}
+      correlation_id:  ${{ needs.resolve.outputs.correlation_id }}
+    secrets:
+      CODEX_APP_ID:        ${{ secrets.CODEX_APP_ID }}
+      CODEX_PRIVATE_KEY:   ${{ secrets.CODEX_PRIVATE_KEY }}
+
+  enforce:
+    if: >
+      needs.resolve.outputs.mode == 'enforce' &&
+      needs.resolve.outputs.issue_number != ''
+    needs: resolve
+    uses: ./.github/workflows/engine-enforce.yml
+    with:
+      target_repo:     ${{ needs.resolve.outputs.target_repo }}
+      issue_number:    ${{ needs.resolve.outputs.issue_number }}
+      event_type:      ${{ needs.resolve.outputs.event_type }}
+      telemetry_repo:  ${{ needs.resolve.outputs.telemetry_repo }}
+      correlation_id:  ${{ needs.resolve.outputs.correlation_id }}
+    secrets:
+      CODEX_APP_ID:        ${{ secrets.CODEX_APP_ID }}
+      CODEX_PRIVATE_KEY:   ${{ secrets.CODEX_PRIVATE_KEY }}
