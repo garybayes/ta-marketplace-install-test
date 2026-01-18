@@ -1,12 +1,23 @@
----
-version: 1
+schema_version: "1.0"
+
+tracks:
+  - id: backlog
+    label: track/backlog
+    description: Default backlog
+
+labels:
+  - name: phase-3.4
+    description: Phase 3.4 – Marketplace Readiness
+    color: "D93F0B"
+
+milestones:
+  - title: "Phase 3.4 – Marketplace Readiness"
 
 enforcement:
-  enabled: false
+  exclusivity:
+    phase:
+      mode: enforce
+      strategy: highest
 
-telemetry:
-  enabled: true
-
-safety:
-  allow_destructive_actions: false
-  fail_on_invalid_config: true
+  phase_milestones:
+    phase-3.4: "Phase 3.4 – Marketplace Readiness"
