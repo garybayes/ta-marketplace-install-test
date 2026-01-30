@@ -1,17 +1,26 @@
 schema_version: "1.0"
 
 tracks:
+  - id: sprint
+    label: track/sprint
+    description: Active sprint work
+
   - id: backlog
     label: track/backlog
-    description: Default backlog
+    description: Planned but unscheduled work
 
 labels:
   - name: phase-3.4
     description: Phase 3.4 – Marketplace Readiness
     color: "D93F0B"
 
+  - name: phase-3.5
+    description: Phase 3.5 – Post-Release Hardening
+    color: "B60205"
+
 milestones:
   - title: "Phase 3.4 – Marketplace Readiness"
+  - title: "Phase 3.5 – Post-Release Hardening"
 
 enforcement:
   exclusivity:
@@ -21,3 +30,5 @@ enforcement:
 
   phase_milestones:
     phase-3.4: "Phase 3.4 – Marketplace Readiness"
+    phase-3.5: "Phase 3.5 – Post-Release Hardening"
+
